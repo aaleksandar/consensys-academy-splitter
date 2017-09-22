@@ -14,39 +14,61 @@ contract('Splitter', function(accounts) {
     });
   });
 
-  it("should be owned by alice", function() {
+  it('should be owned by alice', function() {
     return contract.alice({from: alice})
       .then(function(owner) {
         assert.strictEqual(owner, alice);
       });
   });
 
-  it("should split even amounts", function() {
-    var bobBefore   = web3.eth.getBalance(bob);
-    var carolBefore = web3.eth.getBalance(carol);
-
-    return contract.split({ from: alice, value: 100 })
+  it('should split even amounts', function() {
+    return contract.split(bob, carol, { from: alice, value: 100 })
       .then(function(tx) {
-        var bobAfter   = web3.eth.getBalance(bob);
-        var carolAfter = web3.eth.getBalance(carol);
+        contract.getBalance(alice).then(function(balance){
+          assert.equal('0', balance);
+        });
 
-        assert.equal(bobBefore.plus(50).toNumber(),   bobAfter.toNumber());
-        assert.equal(carolBefore.plus(50).toNumber(), carolAfter.toNumber());
+        contract.getBalance(bob).then(function(balance){
+          assert.equal('50', balance);
+        });
+
+        contract.getBalance(carol).then(function(balance){
+          assert.equal('50', balance);
+        });
       });
   });
 
-  it("should split odd amounts", function() {
-    var bobBefore   = web3.eth.getBalance(bob);
-    var carolBefore = web3.eth.getBalance(carol);
-
-    return contract.split({ from: alice, value: 3 })
+  it('should split odd amounts', function() {
+    return contract.split(bob, carol, { from: alice, value: 101 })
       .then(function(tx) {
-        var bobAfter   = web3.eth.getBalance(bob);
-        var carolAfter = web3.eth.getBalance(carol);
+        contract.getBalance(alice).then(function(balance){
+          assert.equal('1', balance);
+        });
 
-        assert.equal(bobBefore.plus(1).toNumber(),   bobAfter.toNumber());
-        assert.equal(carolBefore.plus(1).toNumber(), carolAfter.toNumber());
+        contract.getBalance(bob).then(function(balance){
+          assert.equal('50', balance);
+        });
+
+        contract.getBalance(carol).then(function(balance){
+          assert.equal('50', balance);
+        });
       });
   });
 
+  it('should be able to withdraw', function() {
+    var bobBefore = web3.eth.getBalance(bob);
+    var transactionPrice = 0;
+
+    return contract.split(bob, carol, { from: alice, value: 100, gasPrice: 1 })
+      .then(function(tx) {
+        return contract.withdraw({ from: bob, gasPrice: 1 })
+      })
+      .then(function(tx) {
+        transactionPrice = tx.receipt.gasUsed;
+
+        bobAfter = web3.eth.getBalance(bob);
+
+        assert.equal(bobBefore.minus(transactionPrice).plus(50).toString(), bobAfter.toString());
+      });
+  });
 });
